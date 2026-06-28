@@ -72,8 +72,8 @@ if archivo is not None:
     st.header("3. Predicción de finalización de compra")
 
     st.write(
-        "En esta versión demo, el portal estima una probabilidad de compra para cada registro. "
-        "En una implementación real, esta sección se conectaría con el modelo Random Forest entrenado en Colab."
+        "Las predicciones fueron generadas utilizando un modelo Random Forest entrenado con el dataset Online Shoppers Purchasing Intention."
+    
     )
 
 # ==============================
