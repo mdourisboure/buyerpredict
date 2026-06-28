@@ -4,6 +4,10 @@ import pandas as pd
 import numpy as np
 import joblib
 
+# Cargar modelo entrenado y columnas usadas durante el entrenamiento
+modelo = joblib.load("modelo_random_forest.pkl")
+columnas_modelo = joblib.load("columnas_modelo.pkl")
+
 st.set_page_config(
     page_title="PredictBuy Portal",
     page_icon="🛒",
@@ -72,12 +76,36 @@ if archivo is not None:
         "En una implementación real, esta sección se conectaría con el modelo Random Forest entrenado en Colab."
     )
 
-    np.random.seed(42)
-    df_resultado = df.copy()
+# ==============================
+# PREDICCIÓN CON MODELO REAL
+# ==============================
 
-    df_resultado["probabilidad_compra"] = np.random.uniform(0.05, 0.95, size=len(df_resultado))
+df_pred = df.copy()
 
-    def clasificar(prob):
+# Si el CSV contiene la columna Revenue, la eliminamos porque es la variable objetivo
+if "Revenue" in df_pred.columns:
+    df_pred = df_pred.drop(columns=["Revenue"])
+
+# Aplicar las mismas transformaciones usadas en Colab
+df_pred = pd.get_dummies(df_pred, columns=["Month", "VisitorType"], drop_first=True)
+
+# Convertir Weekend a 0/1 si existe
+if "Weekend" in df_pred.columns:
+    df_pred["Weekend"] = df_pred["Weekend"].astype(int)
+
+# Alinear las columnas del archivo cargado con las columnas usadas para entrenar el modelo
+df_pred = df_pred.reindex(columns=columnas_modelo, fill_value=0)
+
+# Generar predicciones reales
+probabilidades = modelo.predict_proba(df_pred)[:, 1]
+predicciones = modelo.predict(df_pred)
+
+# Crear dataframe de resultados
+df_resultado = df.copy()
+df_resultado["probabilidad_compra"] = probabilidades
+df_resultado["prediccion_compra"] = predicciones
+
+ def clasificar(prob):
         if prob >= 0.70:
             return "Alta probabilidad"
         elif prob >= 0.40:
