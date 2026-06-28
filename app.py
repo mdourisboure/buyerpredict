@@ -229,4 +229,4 @@ if archivo is not None:
 
 else:
     st.info("Subí un archivo CSV para comenzar.")
-    
+
