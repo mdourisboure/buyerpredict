@@ -1,18 +1,28 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 
-# Cargar modelo entrenado y columnas usadas durante el entrenamiento
-modelo = joblib.load("modelo_random_forest.pkl")
-columnas_modelo = joblib.load("columnas_modelo.pkl")
+# ==============================
+# CONFIGURACIÓN GENERAL
+# ==============================
 
 st.set_page_config(
     page_title="PredictBuy Portal",
     page_icon="🛒",
     layout="wide"
 )
+
+# ==============================
+# CARGAR MODELO
+# ==============================
+
+modelo = joblib.load("modelo_random_forest.pkl")
+columnas_modelo = joblib.load("columnas_modelo.pkl")
+
+# ==============================
+# ENCABEZADO
+# ==============================
 
 st.title("🛒 PredictBuy Portal")
 st.subheader("Predicción de finalización de compra para ecommerce")
@@ -23,6 +33,10 @@ st.write(
 )
 
 st.divider()
+
+# ==============================
+# CARGA DE DATASET
+# ==============================
 
 st.header("1. Cargar dataset")
 
@@ -52,6 +66,10 @@ if archivo is not None:
 
     st.divider()
 
+    # ==============================
+    # ANÁLISIS AUTOMÁTICO
+    # ==============================
+
     st.header("2. Análisis automático del dataset")
 
     columnas_numericas = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
@@ -69,43 +87,53 @@ if archivo is not None:
 
     st.divider()
 
+    # ==============================
+    # PREDICCIÓN CON MODELO REAL
+    # ==============================
+
     st.header("3. Predicción de finalización de compra")
 
-    st.write(
+    st.info(
         "Las predicciones fueron generadas utilizando un modelo Random Forest entrenado con el dataset Online Shoppers Purchasing Intention."
-    
     )
 
-# ==============================
-# PREDICCIÓN CON MODELO REAL
-# ==============================
+    df_pred = df.copy()
 
-df_pred = df.copy()
+    # Si el CSV contiene la columna Revenue, la eliminamos porque es la variable objetivo
+    if "Revenue" in df_pred.columns:
+        df_pred = df_pred.drop(columns=["Revenue"])
 
-# Si el CSV contiene la columna Revenue, la eliminamos porque es la variable objetivo
-if "Revenue" in df_pred.columns:
-    df_pred = df_pred.drop(columns=["Revenue"])
+    # Aplicar las mismas transformaciones usadas en Colab
+    columnas_dummy = ["Month", "VisitorType"]
+    columnas_dummy_existentes = [col for col in columnas_dummy if col in df_pred.columns]
 
-# Aplicar las mismas transformaciones usadas en Colab
-df_pred = pd.get_dummies(df_pred, columns=["Month", "VisitorType"], drop_first=True)
+    df_pred = pd.get_dummies(
+        df_pred,
+        columns=columnas_dummy_existentes,
+        drop_first=True
+    )
 
-# Convertir Weekend a 0/1 si existe
-if "Weekend" in df_pred.columns:
-    df_pred["Weekend"] = df_pred["Weekend"].astype(int)
+    # Convertir Weekend a 0/1 si existe
+    if "Weekend" in df_pred.columns:
+        df_pred["Weekend"] = df_pred["Weekend"].astype(int)
 
-# Alinear las columnas del archivo cargado con las columnas usadas para entrenar el modelo
-df_pred = df_pred.reindex(columns=columnas_modelo, fill_value=0)
+    # Alinear columnas con las columnas usadas al entrenar el modelo
+    df_pred = df_pred.reindex(columns=columnas_modelo, fill_value=0)
 
-# Generar predicciones reales
-probabilidades = modelo.predict_proba(df_pred)[:, 1]
-predicciones = modelo.predict(df_pred)
+    # Generar predicciones reales
+    probabilidades = modelo.predict_proba(df_pred)[:, 1]
+    predicciones = modelo.predict(df_pred)
 
-# Crear dataframe de resultados
-df_resultado = df.copy()
-df_resultado["probabilidad_compra"] = probabilidades
-df_resultado["prediccion_compra"] = predicciones
+    # Crear dataframe de resultados
+    df_resultado = df.copy()
+    df_resultado["probabilidad_compra"] = probabilidades
+    df_resultado["prediccion_compra"] = predicciones
 
- def clasificar(prob):
+    # ==============================
+    # CLASIFICACIÓN Y RECOMENDACIONES
+    # ==============================
+
+    def clasificar(prob):
         if prob >= 0.70:
             return "Alta probabilidad"
         elif prob >= 0.40:
@@ -126,39 +154,67 @@ df_resultado["prediccion_compra"] = predicciones
 
     st.subheader("Resultados de predicción")
     st.dataframe(
-        df_resultado[["probabilidad_compra", "segmento", "accion_recomendada"]].head(20)
+        df_resultado[
+            [
+                "probabilidad_compra",
+                "prediccion_compra",
+                "segmento",
+                "accion_recomendada"
+            ]
+        ].head(20)
     )
 
     st.divider()
+
+    # ==============================
+    # SEGMENTACIÓN
+    # ==============================
 
     st.header("4. Segmentación de usuarios")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Alta probabilidad", int((df_resultado["segmento"] == "Alta probabilidad").sum()))
+        st.metric(
+            "Alta probabilidad",
+            int((df_resultado["segmento"] == "Alta probabilidad").sum())
+        )
 
     with col2:
-        st.metric("Probabilidad media", int((df_resultado["segmento"] == "Probabilidad media").sum()))
+        st.metric(
+            "Probabilidad media",
+            int((df_resultado["segmento"] == "Probabilidad media").sum())
+        )
 
     with col3:
-        st.metric("Baja probabilidad", int((df_resultado["segmento"] == "Baja probabilidad").sum()))
+        st.metric(
+            "Baja probabilidad",
+            int((df_resultado["segmento"] == "Baja probabilidad").sum())
+        )
 
     st.bar_chart(df_resultado["segmento"].value_counts())
 
     st.divider()
 
+    # ==============================
+    # RECOMENDACIONES COMERCIALES
+    # ==============================
+
     st.header("5. Recomendaciones comerciales")
 
     st.markdown(
-        '''
+        """
         - **Alta probabilidad de compra:** simplificar checkout y evitar descuentos innecesarios.
         - **Probabilidad media:** ofrecer incentivo, envío gratis o recordatorio.
         - **Baja probabilidad:** incluir al usuario en campañas de remarketing.
-        '''
+        """
     )
 
     st.divider()
+
+    # ==============================
+    # DESCARGA DE RESULTADOS
+    # ==============================
 
     st.header("6. Descargar resultados")
 
@@ -173,3 +229,4 @@ df_resultado["prediccion_compra"] = predicciones
 
 else:
     st.info("Subí un archivo CSV para comenzar.")
+    
