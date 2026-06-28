@@ -18,7 +18,9 @@ st.set_page_config(
 # ==============================
 
 modelo = joblib.load("modelo_random_forest.pkl")
-columnas_modelo = joblib.load("columnas_modelo.pkl")
+
+# Usamos las columnas reales con las que fue entrenado el modelo
+columnas_modelo = list(modelo.feature_names_in_)
 
 # ==============================
 # ENCABEZADO
