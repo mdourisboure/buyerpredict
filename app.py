@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 # ==============================
 # CONFIGURACIÓN GENERAL
 # ==============================
@@ -96,7 +96,10 @@ if archivo is not None:
     st.header("3. Predicción de finalización de compra")
 
     st.info(
-        "Las predicciones fueron generadas utilizando un modelo Random Forest entrenado con el dataset Online Shoppers Purchasing Intention."
+        st.info(
+    "Las predicciones fueron generadas utilizando un modelo Random Forest entrenado con el 80% del dataset Online Shoppers Purchasing Intention. "
+    "Si el archivo cargado contiene la columna Revenue, la app también evalúa el desempeño del modelo sobre datos no vistos durante el entrenamiento."
+)
     )
 
     df_pred = df.copy()
@@ -131,6 +134,46 @@ if archivo is not None:
     df_resultado["probabilidad_compra"] = probabilidades
     df_resultado["prediccion_compra"] = predicciones
 
+    # ==============================
+    # EVALUACIÓN SI EXISTE REVENUE
+    # ==============================
+
+    if "Revenue" in df.columns:
+        st.divider()
+        st.header("Evaluación del modelo con datos reales")
+
+        y_real = df["Revenue"].astype(int)
+        y_pred_app = df_resultado["prediccion_compra"].astype(int)
+
+        accuracy = accuracy_score(y_real, y_pred_app)
+        precision = precision_score(y_real, y_pred_app, zero_division=0)
+        recall = recall_score(y_real, y_pred_app, zero_division=0)
+        f1 = f1_score(y_real, y_pred_app, zero_division=0)
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric("Accuracy", round(accuracy, 4))
+
+        with col2:
+            st.metric("Precision", round(precision, 4))
+
+        with col3:
+            st.metric("Recall", round(recall, 4))
+
+        with col4:
+            st.metric("F1-score", round(f1, 4))
+
+        matriz = confusion_matrix(y_real, y_pred_app)
+
+        matriz_df = pd.DataFrame(
+            matriz,
+            index=["Real: No compra", "Real: Compra"],
+            columns=["Predicho: No compra", "Predicho: Compra"]
+        )
+
+        st.subheader("Matriz de confusión")
+        st.dataframe(matriz_df)
     # ==============================
     # CLASIFICACIÓN Y RECOMENDACIONES
     # ==============================
